@@ -1,5 +1,4 @@
-use std::net::TcpListener;
-use crate::server::thread_pool::ThreadPool;
+use tokio::net::TcpListener;
 use crate::server::tcp::handle_connection;
 
 
@@ -18,23 +17,28 @@ impl Server
         }
     }
 
-    pub fn run(&self) 
+    pub async fn run(&self) 
     {
         let listener = TcpListener::bind(&self.address)
+          .await
           .expect("[ERROR] failed to bind address");
 
-        println!("[SUCCESS] Server running at http://{}", self.address);
+        println!("[SUCCESS] Async server running at http://{}", self.address);
 
-        let pool = ThreadPool::new(4);
-
-        for stream in listener.incoming() 
+        loop
         {
-            let stream = stream.expect("[ERROR] Failed to connect");
-
-            pool.execute(move || 
-            {
-                handle_connection(stream);
-            });
+            let (stream, _) = listener
+              .accept()
+              .await
+              .expect("[ERROR] Failed to accept connection");
+            
+            tokio::spawn
+            (
+                async move 
+                {
+                    handle_connection(stream).await;
+                }
+            );
         }
     }
 }
