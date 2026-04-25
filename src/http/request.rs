@@ -18,9 +18,9 @@ impl Request
         let header_part = parts.next()?;
         
         let body = parts
-          .next()
-          .unwrap_or("")
-          .trim_matches(char::from(0));
+            .next()
+            .unwrap_or("")
+            .trim_matches(char::from(0));
 
         let first_line = header_part.lines().next()?;
         let mut first_line_parts = first_line.split_whitespace();

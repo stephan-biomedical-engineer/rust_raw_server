@@ -15,9 +15,9 @@ pub async fn handle_connection
     let mut buffer = [0; 1024];
     
     stream
-      .read(&mut buffer)
-      .await
-      .expect("[ERROR] Failed to read request");
+        .read(&mut buffer)
+        .await
+        .expect("[ERROR] Failed to read request");
 
     let response = match Request::from_buffer(&buffer)
     {
@@ -31,7 +31,7 @@ pub async fn handle_connection
     };
 
     stream
-      .write_all(response.to_http_string().as_bytes())
-      .await
-      .expect("[ERROR] Failed to write response");
+        .write_all(response.to_http_string().as_bytes())
+        .await
+        .expect("[ERROR] Failed to write response");
 }

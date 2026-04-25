@@ -23,17 +23,17 @@ impl Server
     pub async fn run(&self) 
     {
         let listener = TcpListener::bind(&self.address)
-          .await
-          .expect("[ERROR] failed to bind address");
+            .await
+            .expect("[ERROR] failed to bind address");
 
         println!("[SUCCESS] Async server running at http://{}", self.address);
 
         loop
         {
             let (stream, _) = listener
-              .accept()
-              .await
-              .expect("[ERROR] Failed to accept connection");
+                .accept()
+                .await
+                .expect("[ERROR] Failed to accept connection");
             
             let pool = self.pool.clone();
 
