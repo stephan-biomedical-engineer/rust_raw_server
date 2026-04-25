@@ -1,16 +1,13 @@
-use std::sync::Arc;
-
+use sqlx::PgPool;
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
 
 use crate::http::request::Request;
 use crate::http::response::Response;
-use crate::state::AppState;
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, sqlx::FromRow)]
 pub struct User
 {
-    pub id: u32,
+    pub id: i32,
     pub name: String,
 }
 
@@ -20,11 +17,29 @@ struct CreateUserRequest
     name: String,
 }
 
-pub async fn list_users(state: Arc<Mutex<AppState>>) -> Response
+pub async fn list_users(pool: PgPool) -> Response
 {
-    let state = state.lock().await;
+    let users = match sqlx::query_as::<_, User>
+        (
+            "SELECT id, name FROM users ORDER BY id"
+        )
+        .fetch_all(&pool)
+        .await
+    {
+        Ok(users) => users,
+        Err(_) =>
+        {
+            return Response::json
+            (
+                500,
+                "INTERNAL SERVER ERROR",
+                "{\"error\":\"Failed to fetch users\"}",
+            )
+        }
+    };    
 
-    let json = serde_json::to_string(&state.users)
+
+    let json = serde_json::to_string(&users)
         .expect("[ERROR] Failed to serialize users");
 
     Response::json(200, "OK", &json)
@@ -33,7 +48,7 @@ pub async fn list_users(state: Arc<Mutex<AppState>>) -> Response
 pub async fn create_user
 (
     request: &Request,
-    state: Arc<Mutex<AppState>>,
+    pool: PgPool,
 ) -> Response
 {
     let payload: CreateUserRequest = match serde_json::from_str(&request.body)
@@ -41,7 +56,8 @@ pub async fn create_user
         Ok(payload) => payload,
         Err(_) =>
         {
-            return Response::json(
+            return Response::json
+            (
                 400,
                 "BAD REQUEST",
                 "{\"error\":\"Invalid JSON payload\"}",
@@ -49,16 +65,25 @@ pub async fn create_user
         }
     };
 
-    let mut state = state.lock().await;
-
-    let user = User
+    let user = match sqlx::query_as::<_, User>
+        (
+            "INSERT INTO users (name) VALUES ($1) RETURNING id, name"
+        )
+        .bind(&payload.name)
+        .fetch_one(&pool)
+        .await
     {
-        id: state.next_user_id,
-        name: payload.name,
+        Ok(user) => user,
+        Err(_) =>
+        {
+            return Response::json
+            (
+                500,
+                "INTERNAL SERVER ERROR",
+                "{\"error\":\"Failed to create user\"}",
+            );
+        }
     };
-
-    state.next_user_id += 1;
-    state.users.push(user.clone());
 
     let json = serde_json::to_string(&user)
         .expect("[ERROR] Failed to serialize created user");

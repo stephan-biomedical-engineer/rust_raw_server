@@ -1,25 +1,22 @@
-use std::sync::Arc;
+use sqlx::PgPool;
 use tokio::net::TcpListener;
-use tokio::sync::Mutex;
 
 use crate::server::tcp::handle_connection;
-use crate::state::AppState;
-
 
 pub struct Server 
 {
     address: String,
-    state: Arc<Mutex<AppState>>,
+    pool: PgPool,
 }
 
 impl Server 
 {
-    pub fn new(address: &str, state: Arc<Mutex<AppState>>) -> Server 
+    pub fn new(address: &str, pool: PgPool) -> Server 
     {
         Server 
         {
             address: address.to_string(),
-            state,
+            pool,
         }
     }
 
@@ -38,13 +35,13 @@ impl Server
               .await
               .expect("[ERROR] Failed to accept connection");
             
-            let state = Arc::clone(&self.state);
+            let pool = self.pool.clone();
 
             tokio::spawn
             (
                 async move 
                 {
-                    handle_connection(stream, state).await;
+                    handle_connection(stream, pool).await;
                 }
             );
         }
