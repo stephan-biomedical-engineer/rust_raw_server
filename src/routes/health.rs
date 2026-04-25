@@ -1,22 +1,16 @@
-use serde::Serialize;
+use axum::Json;
+use serde_json::{json, Value};
 
-use crate::http::response::Response;
-
-#[derive(Serialize)]
-struct HealthResponse
+pub async fn health() -> Json<Value>
 {
-    status: String,
-}
-
-pub fn health() -> Response
-{
-    let body = HealthResponse
-    {
-        status: "ok".to_string(),
-    };
-
-    let json = serde_json::to_string(&body)
-      .expect("[ERROR] Failed to serialize health response");
-
-    Response::json(200, "OK", &json)
+    Json
+    (
+        json!
+        (
+            {
+                "status": "ok",
+                "message": "Server is healthy"
+            }
+        )
+    )
 }
