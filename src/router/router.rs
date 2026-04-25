@@ -1,6 +1,8 @@
 use crate::http::request::Request;
 use crate::http::response::Response;
+use crate::routes::health::health;
 use crate::routes::home::{about, home};
+use crate::routes::users::list_users;
 
 pub struct Router;
 
@@ -12,6 +14,8 @@ impl Router
         {
             ("GET", "/") => home(),
             ("GET", "/sobre") => about(),
+            ("GET", "/health") => health(),
+            ("GET", "/users") => list_users(),
             _ => Response::not_found(),
         }
     }

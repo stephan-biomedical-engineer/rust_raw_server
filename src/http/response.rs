@@ -41,4 +41,15 @@ impl Response
             self.body
         )
     }
+
+    pub fn json(status_code: u16, status_text: &str, body: &str) -> Response
+    {
+        Response
+        {
+            status_code,
+            status_text: status_text.to_string(),
+            content_type: "application/json; charset=UTF-8".to_string(),
+            body: body.to_string(),
+        }
+    }
 }
