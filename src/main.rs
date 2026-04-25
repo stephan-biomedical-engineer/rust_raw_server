@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-use mini_servidor::server::server::Server;
-use mini_servidor::state::AppState;
+use rust_raw_server::server::server::Server;
+use rust_raw_server::state::AppState;
 
 #[tokio::main]
 async fn main() 
