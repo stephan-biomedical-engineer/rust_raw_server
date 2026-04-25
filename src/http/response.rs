@@ -37,7 +37,7 @@ impl Response
             self.status_code,
             self.status_text,
             self.content_type,
-            self.body.len(),
+            self.body.as_bytes().len(),
             self.body
         )
     }

@@ -1,11 +1,18 @@
+use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
+use tokio::sync::Mutex;
 
 use crate::http::request::Request;
 use crate::http::response::Response;
 use crate::router::router::Router;
+use crate::state::AppState;
 
-pub async fn handle_connection(mut stream: TcpStream)
+pub async fn handle_connection
+    (
+        mut stream: TcpStream,
+        state: Arc<Mutex<AppState>>,
+    )   
 {
     let mut buffer = [0; 1024];
     
@@ -16,11 +23,12 @@ pub async fn handle_connection(mut stream: TcpStream)
 
     let response = match Request::from_buffer(&buffer)
     {
-        Some(request) => Router::handle(&request),
-        None => Response::new(
+        Some(request) => Router::handle(&request, state).await,
+        None => Response::new
+        (
             400,
             "BAD REQUEST",
-            "<h1>400</h1><p>Requisição inválida.</p>",
+            "{\"error\":\"Invalid request\"}",
         ),
     };
 
