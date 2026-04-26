@@ -16,3 +16,9 @@ pub struct CreateUserRequest
     // pub email: String,
     // pub password: String,
 }
+
+#[derive(Debug, Deserialize)]
+pub struct UpdateUserRequest
+{
+    pub name: String,
+}

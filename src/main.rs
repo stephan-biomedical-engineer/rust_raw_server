@@ -1,4 +1,4 @@
-use axum::{routing::{get, put, delete}, Router};
+use axum::{routing::get, Router};
 use dotenvy::dotenv;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
@@ -7,6 +7,7 @@ mod models;
 mod repositories;
 mod responses;
 mod routes;
+mod services;
 
 use routes::health::health;
 use routes::users::{create_user, list_users, get_user, update_user, delete_user};
