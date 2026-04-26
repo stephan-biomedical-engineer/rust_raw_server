@@ -15,7 +15,7 @@ FROM rust:1.93-slim
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y ca-certificates bash \
+    && apt-get install -y ca-certificates bash curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/rust_raw_server /app/rust_raw_server
