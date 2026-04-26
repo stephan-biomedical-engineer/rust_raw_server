@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use crate::models::user::{UpdateUserRequest, User};
 use crate::responses::api_response::{service_error, ApiError};
 use crate::services::users_service;
+use crate::auth::extractor::AuthUser;
 
 pub async fn list_users(
     State(pool): State<PgPool>,
@@ -42,6 +43,7 @@ pub async fn update_user(
 }
 
 pub async fn delete_user(
+    _auth_user: AuthUser,
     State(pool): State<PgPool>,
     Path(id): Path<i32>,
 ) -> Result<StatusCode, ApiError>

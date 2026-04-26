@@ -4,6 +4,7 @@ use argon2::{
 };
 use chrono::{Duration, Utc};
 use jsonwebtoken::{encode, EncodingKey, Header};
+use jsonwebtoken::{decode, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -47,4 +48,19 @@ pub fn create_jwt(user_id: i32)
 
     let secret = std::env::var("JWT_SECRET").expect("[ERRO] JWT_SECRET não configurada no .env");
     encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))
+}
+
+pub fn decode_jwt(token: &str) -> Result<Claims, jsonwebtoken::errors::Error>
+{
+    let secret = std::env::var("JWT_SECRET")
+        .expect("[ERRO] JWT_SECRET não configurada");
+
+    let data = decode::<Claims>
+    (
+        token,
+        &DecodingKey::from_secret(secret.as_bytes()),
+        &Validation::default(),
+    )?;
+
+    Ok(data.claims)
 }
