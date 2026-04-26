@@ -16,16 +16,6 @@ pub async fn list_users(pool: &PgPool) -> Result<Vec<User>, ServiceError>
         .map_err(ServiceError::Database)
 }
 
-pub async fn create_user(
-    pool: &PgPool,
-    name: String,
-) -> Result<User, ServiceError>
-{
-    users_repository::create(pool, name)
-        .await
-        .map_err(ServiceError::Database)
-}
-
 pub async fn get_user(
     pool: &PgPool,
     id: i32,
@@ -37,7 +27,8 @@ pub async fn get_user(
         .ok_or(ServiceError::NotFound)
 }
 
-pub async fn update_user(
+pub async fn update_user
+(
     pool: &PgPool,
     id: i32,
     name: String,

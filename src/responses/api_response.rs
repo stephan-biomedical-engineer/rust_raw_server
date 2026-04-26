@@ -42,3 +42,20 @@ pub fn service_error(error: ServiceError, message: &str) -> ApiError
         ServiceError::NotFound => not_found("User not found"),
     }
 }
+
+pub fn unauthorized(message: &str) -> ApiError
+{
+    (
+        StatusCode::UNAUTHORIZED,
+        Json(json!({ "error": message })),
+    )
+}
+
+pub fn conflict(message: &str) -> ApiError
+{
+    (
+        StatusCode::CONFLICT,
+        Json(json!({ "error": message })),
+    )
+}
+

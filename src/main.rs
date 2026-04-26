@@ -1,18 +1,20 @@
-use axum::{routing::get, Router};
+use axum::{routing::{get, post}, Router};
 use dotenvy::dotenv;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
+use routes::auth::{login, register};
 
 mod models;
 mod repositories;
 mod responses;
 mod routes;
 mod services;
+mod auth;
 
 use routes::health::health;
-use routes::users::{create_user, list_users, get_user, update_user, delete_user};
+use routes::users::{list_users, get_user, update_user, delete_user};
 
 #[tokio::main]
 async fn main() 
@@ -32,8 +34,10 @@ async fn main()
     
     let app = Router::new()
         .route("/health", get(health))
-        .route("/users", get(list_users).post(create_user))
+        .route("/users", get(list_users))
         .route("/users/{id}", get(get_user).put(update_user).delete(delete_user))
+        .route("/auth/register", post(register))
+        .route("/auth/login", post(login))
         .with_state(pool);
 
     let listener = TcpListener::bind("0.0.0.0:7878")

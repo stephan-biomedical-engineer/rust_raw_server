@@ -13,3 +13,6 @@ axum = "0.8.9"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tracing = "0.1.44"
 tower-http = { version = "0.6.8", features = ["trace"] }
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
+argon2 = "0.5.3"
+chrono = { version = "0.4.44", features = ["serde"] }
