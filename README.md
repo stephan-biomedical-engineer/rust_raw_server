@@ -46,8 +46,8 @@ O projeto segue uma separação rigorosa de responsabilidades para garantir manu
 
 3.  **Configuração de Ambiente:**
     Crie um arquivo `.env` na raiz do projeto com a seguinte URL de conexão:
-    
-```env
+
+    ```env
     DATABASE_URL=postgres://rust_server_user:rust_server_password@localhost:5432/rust_server_db
     ```
 
