@@ -21,6 +21,10 @@ Este projeto começou como um servidor TCP/HTTP construído manualmente para est
 - Docker Compose com API + banco
 - Migrations automáticas no startup do container
 - Arquitetura em camadas
+- Validação de payloads com `validator`
+- Logs estruturados com `tracing` (JSON em produção)
+- Rate limiting com `tower-governor`
+- Testes de integração com `tokio` + `reqwest`
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -65,8 +69,11 @@ src/
 │   ├── auth_service.rs
 │   ├── mod.rs
 │   └── users_service.rs
-└── main.rs
-└── lib.rs
+├── app.rs          # montagem do Router (rotas + middlewares)
+├── config.rs       # leitura de variáveis de ambiente
+├── telemetry.rs    # configuração de logs (JSON ou texto)
+├── main.rs         # bootstrap da aplicação
+└── lib.rs          # módulos
 ````
 
 ### `routes/`
@@ -117,17 +124,31 @@ As senhas nunca são salvas em texto puro. Apenas o `password_hash` é persistid
 
 ## 🚀 Como executar com Docker Compose
 
-### 1. Crie o arquivo `.env.dev`
+### 1. Crie o arquivo `.env`
+
+## ⚙️ Variáveis de Ambiente
+
+O projeto usa múltiplos arquivos `.env`:
+
+| Arquivo      | Uso                     |
+|--------------|------------------------|
+| `.env.dev`   | Desenvolvimento local  |
+| `.env.test`  | Testes automatizados   |
+| `.env.prod`  | Produção (futuro)      |
+| `.env.example` | Template versionado |
+
+### Exemplo (`.env.example`)
 
 ```env
-POSTGRES_USER=rust_server_user
-POSTGRES_PASSWORD=rust_server_password
-POSTGRES_DB=rust_server_db
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=rust_db
 
-DATABASE_URL=postgres://rust_server_user:rust_server_password@postgres:5432/rust_server_db
+DATABASE_URL=postgres://user:password@localhost:5432/rust_db
 
-JWT_SECRET=uma_chave_super_secreta_para_estudo_123456789
+JWT_SECRET=your_super_secret_key_here
 
+APP_ENV=development
 RUST_LOG=info
 ```
 
@@ -136,7 +157,7 @@ RUST_LOG=info
 ### 2. Suba a aplicação
 
 ```bash
-docker compose --env-file .env.dev up --build -d
+docker compose --env-file .env up --build -d
 ```
 
 Isso sobe:
@@ -168,6 +189,49 @@ Resposta esperada:
   "message": "Server is healthy"
 }
 ```
+
+
+---
+
+## Nova seção: Logs
+## 📊 Observabilidade (Logs)
+
+A aplicação usa `tracing` com dois modos:
+
+- **development** → logs coloridos e legíveis
+- **production** → logs em JSON estruturado
+
+Controlado pela variável:
+
+```env
+APP_ENV=development | production
+```
+Exemplo de log em produção:
+
+```json
+{
+  "level": "INFO",
+  "user_id": 42,
+  "message": "User logged in successfully"
+}
+```
+
+## Nova seção: Testes
+## 📊 Testes Automatizados
+
+Os testes ficam em:
+
+```text
+tests/api.rs
+```
+
+Para rodar:
+
+```text
+cargo test
+```
+
+Os testes usam um banco separado (.env.test) e podem rodar migrations automaticamente.
 
 ## 🧪 Executando localmente sem Docker para a API
 
@@ -324,28 +388,19 @@ Já implementado:
 * Rotas protegidas por extractor customizado
 * Validação de entrada
 * CORS
-* Variáveis de ambiente
-
-Melhorias futuras:
-
 * Rate limiting
-* Refresh tokens
-* Revogação de tokens
-* Secrets fora de `.env`
-* HTTPS com reverse proxy
-* Testes automatizados
-* CI/CD
-* Backups automáticos do banco
+* Variáveis de ambiente separadas por ambiente
+* Logs estruturados (observabilidade)
 
 ## 🧭 Próximos passos
 
-* [ ] Rate limiting
-* [ ] Testes de integração
-* [ ] GitHub Actions
-* [ ] Docker secrets
-* [ ] Reverse proxy com HTTPS
+* [ ] Refresh tokens
+* [ ] Revogação de tokens
+* [ ] Secrets externos (AWS / Docker Secrets)
+* [ ] HTTPS com reverse proxy (Nginx / Traefik)
+* [ ] CI/CD com GitHub Actions
 * [ ] Backup automatizado do PostgreSQL
-* [ ] Refresh token
+* [ ] Deploy em Kubernetes
 * [ ] Frontend consumindo a API
 
 ---
