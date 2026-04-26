@@ -2,6 +2,8 @@ use axum::{routing::get, Router};
 use dotenvy::dotenv;
 use sqlx::PgPool;
 use tokio::net::TcpListener;
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
 mod models;
 mod repositories;
@@ -17,6 +19,10 @@ async fn main()
 {
     dotenv().ok();
 
+    tracing_subscriber::fmt()
+        .with_env_filter(EnvFilter::new("info"))
+        .init();
+
     let database_url = std::env::var("DATABASE_URL")
         .expect("[ERROR] DATABASE_URL must be set");
 
@@ -30,11 +36,11 @@ async fn main()
         .route("/users/{id}", get(get_user).put(update_user).delete(delete_user))
         .with_state(pool);
 
-    let listener = TcpListener::bind("127.0.0.1:7878")
+    let listener = TcpListener::bind("0.0.0.0:7878")
         .await
         .expect("[ERROR] Failed to bind address");
 
-    println!("Server running on http://{}", listener.local_addr().unwrap());
+    info!("Server running on http://{}", listener.local_addr().unwrap());
 
     axum::serve(listener, app)
         .await

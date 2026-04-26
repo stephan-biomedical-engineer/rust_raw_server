@@ -1,5 +1,6 @@
 use axum::{http::StatusCode, Json};
 use serde_json::{json, Value};
+use tracing::error;
 
 use crate::services::users_service::ServiceError;
 
@@ -35,7 +36,7 @@ pub fn service_error(error: ServiceError, message: &str) -> ApiError
     {
         ServiceError::Database(err) =>
         {
-            eprintln!("[DATABASE ERROR] {:?}", err);
+            error!(error = ?err, "Database error");
             internal_error(message)
         }
         ServiceError::NotFound => not_found("User not found"),
