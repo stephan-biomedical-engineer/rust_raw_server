@@ -1,74 +1,357 @@
 # Rust Clean Architecture API 🦀
 
-Uma API RESTful construída em Rust, focada em alta performance, concorrência segura e arquitetura em camadas (Domain-Driven Design). 
+API RESTful construída em Rust com foco em performance, segurança, concorrência assíncrona e arquitetura em camadas.
 
-Este projeto começou como um servidor TCP assíncrono construído "do zero" e evoluiu para utilizar o ecossistema moderno do Rust, demonstrando a transição de conceitos de baixo nível para abstrações web de nível de produção.
+Este projeto começou como um servidor TCP/HTTP construído manualmente para estudar conceitos de baixo nível em Rust, como ownership, borrowing, threads, concorrência e I/O. Depois evoluiu para uma API moderna usando Axum, Tokio, PostgreSQL, SQLx, Docker, autenticação JWT, validação de entrada e logs estruturados.
+
+## ✨ Features
+
+- API REST com Axum
+- Runtime assíncrono com Tokio
+- PostgreSQL via Docker
+- SQLx com migrations
+- Autenticação JWT
+- Hash de senha com Argon2
+- Rotas protegidas por extractor customizado
+- Validação de payloads com `validator`
+- Logs estruturados com `tracing`
+- CORS configurado
+- Healthcheck no Docker
+- Dockerfile multi-stage
+- Docker Compose com API + banco
+- Migrations automáticas no startup do container
+- Arquitetura em camadas
 
 ## 🛠️ Tecnologias Utilizadas
 
-*   **Linguagem:** Rust
-*   **Web Framework:** Axum (Roteamento e extração de dados HTTP)
-*   **Runtime Assíncrono:** Tokio
-*   **Banco de Dados:** PostgreSQL (Rodando via Docker)
-*   **Database Driver:** SQLx (Queries tipadas e validadas em tempo de compilação)
-*   **Serialização:** Serde (JSON parsing)
+- **Linguagem:** Rust
+- **Web Framework:** Axum
+- **Runtime Assíncrono:** Tokio
+- **Banco de Dados:** PostgreSQL
+- **Database Driver:** SQLx
+- **Serialização:** Serde
+- **Autenticação:** JWT
+- **Hash de Senha:** Argon2
+- **Validação:** validator
+- **Logs:** tracing / tracing-subscriber
+- **Containerização:** Docker / Docker Compose
 
-## 🏗️ Arquitetura (Camadas)
+## 🏗️ Arquitetura
 
-O projeto segue uma separação rigorosa de responsabilidades para garantir manutenibilidade e escalabilidade:
+O projeto segue uma separação de responsabilidades em camadas:
 
-*   **`routes/` (Controllers):** Lida exclusivamente com requisições HTTP, extrai payloads/parâmetros e formata as respostas (JSON/Status Code).
-*   **`services/` (Regras de Negócio):** O núcleo da aplicação. Orquestra a lógica, validações e decide o fluxo dos dados sem saber nada sobre HTTP ou sintaxe de Banco de Dados.
-*   **`repositories/` (Acesso a Dados):** Isolamento total do `sqlx`. É a única camada que escreve queries SQL e conversa diretamente com o PostgreSQL.
-*   **`models/` (Entidades):** Estruturas de dados (Structs) e definições de domínio.
-*   **`responses/`:** Padronização de erros e respostas da API para o cliente.
+```text
+src/
+├── auth/
+│   ├── extractor.rs
+│   ├── jwt.rs
+│   └── mod.rs
+├── models/
+│   ├── auth.rs
+│   ├── mod.rs
+│   └── user.rs
+├── repositories/
+│   ├── mod.rs
+│   └── users_repository.rs
+├── responses/
+│   ├── api_response.rs
+│   └── mod.rs
+├── routes/
+│   ├── auth.rs
+│   ├── health.rs
+│   ├── mod.rs
+│   └── users.rs
+├── services/
+│   ├── auth_service.rs
+│   ├── mod.rs
+│   └── users_service.rs
+└── main.rs
+└── lib.rs
+````
 
-## 🚀 Como Executar Localmente
+### `routes/`
 
-### Pré-requisitos
-*   [Rust & Cargo](https://rustup.rs/) instalados.
-*   [Docker](https://www.docker.com/) e Docker Compose instalados.
-*   `sqlx-cli` instalado (`cargo install sqlx-cli --no-default-features --features postgres`).
+Camada HTTP. Recebe requisições, extrai `Json`, `Path`, `State`, valida payloads e retorna respostas HTTP.
 
-### Passo a Passo
+### `services/`
 
-1.  **Clone o repositório:**
-    ```bash
-    git clone [https://github.com/SEU_USUARIO/rust_raw_server.git](https://github.com/SEU_USUARIO/rust_raw_server.git)
-    cd rust_raw_server
-    ```
+Camada de regras de negócio. Decide o fluxo da aplicação sem depender diretamente de HTTP.
 
-2.  **Inicie o Banco de Dados:**
-    Isso fará o download e iniciará o PostgreSQL em segundo plano.
-    ```bash
-    docker compose up -d
-    ```
+### `repositories/`
 
-3.  **Configuração de Ambiente:**
-    Crie um arquivo `.env` na raiz do projeto com a seguinte URL de conexão:
+Camada de acesso ao banco. É onde ficam as queries SQL usando SQLx.
 
-    ```env
-    DATABASE_URL=postgres://rust_server_user:rust_server_password@localhost:5432/rust_server_db
-    ```
+### `models/`
 
-4.  **Prepare o Banco de Dados (Migrations):**
-    ```bash
-    sqlx database setup
-    ```
+Structs usadas pela aplicação, como `User`, `RegisterRequest`, `LoginRequest` e `AuthResponse`.
 
-5.  **Rode o Servidor:**
-    ```bash
-    cargo run
-    ```
-    O servidor estará rodando em `http://127.0.0.1:7878`.
+### `responses/`
 
-## 📌 Endpoints da API
+Padronização de erros da API, como `not_found`, `unauthorized`, `validation_error` e `internal_error`.
 
-| Método   | Rota           | Descrição                              |
-| :---     | :---           | :---                                   |
-| `GET`    | `/health`      | Verifica a saúde do servidor           |
-| `GET`    | `/users`       | Lista todos os usuários                |
-| `POST`   | `/users`       | Cria um novo usuário                   |
-| `GET`    | `/users/:id`   | Busca um usuário específico pelo ID    |
-| `PUT`    | `/users/:id`   | Atualiza o nome de um usuário          |
-| `DELETE` | `/users/:id`   | Remove um usuário do banco             |
+### `auth/`
+
+Responsável por JWT, hash de senha, validação de senha e extractor de usuário autenticado.
+
+## 🔐 Autenticação
+
+A API usa autenticação com JWT.
+
+Fluxo:
+
+```text
+```md
+POST /auth/register
+→ cria usuário com senha hasheada usando Argon2
+
+POST /auth/login
+→ valida email/senha
+→ retorna token JWT
+
+PUT /users/{id}
+DELETE /users/{id}
+→ exigem Authorization: Bearer <token>
+```
+
+As senhas nunca são salvas em texto puro. Apenas o `password_hash` é persistido no banco.
+
+## 🚀 Como executar com Docker Compose
+
+### 1. Crie o arquivo `.env.dev`
+
+```env
+POSTGRES_USER=rust_server_user
+POSTGRES_PASSWORD=rust_server_password
+POSTGRES_DB=rust_server_db
+
+DATABASE_URL=postgres://rust_server_user:rust_server_password@postgres:5432/rust_server_db
+
+JWT_SECRET=uma_chave_super_secreta_para_estudo_123456789
+
+RUST_LOG=info
+```
+
+> Dentro do Docker Compose, o host do banco é `postgres`, não `localhost`.
+
+### 2. Suba a aplicação
+
+```bash
+docker compose --env-file .env.dev up --build -d
+```
+
+Isso sobe:
+
+* PostgreSQL
+* API Rust
+* migrations automáticas
+* healthcheck da API
+
+### 3. Verifique os containers
+
+```bash
+docker ps
+```
+
+A API deve aparecer como `healthy`.
+
+### 4. Teste o healthcheck
+
+```bash
+curl http://127.0.0.1:7878/health
+```
+
+Resposta esperada:
+
+```json
+{
+  "status": "ok",
+  "message": "Server is healthy"
+}
+```
+
+## 🧪 Executando localmente sem Docker para a API
+
+Você também pode rodar a API localmente e deixar apenas o Postgres no Docker.
+
+Nesse caso, use uma `DATABASE_URL` com `localhost`:
+
+```env
+DATABASE_URL=postgres://rust_server_user:rust_server_password@localhost:5432/rust_server_db
+JWT_SECRET=uma_chave_super_secreta_para_estudo_123456789
+RUST_LOG=info
+```
+
+Suba o Postgres:
+
+```bash
+docker compose --env-file .env.dev up -d postgres
+```
+
+Rode migrations:
+
+```bash
+sqlx migrate run
+```
+
+Rode a API:
+
+```bash
+cargo run
+```
+
+## 📌 Endpoints
+
+| Método   | Rota             | Protegida | Descrição                   |
+| :------- | :--------------- | :-------: | :-------------------------- |
+| `GET`    | `/health`        |    Não    | Verifica a saúde da API     |
+| `POST`   | `/auth/register` |    Não    | Registra um novo usuário    |
+| `POST`   | `/auth/login`    |    Não    | Realiza login e retorna JWT |
+| `GET`    | `/users`         |    Não    | Lista usuários              |
+| `GET`    | `/users/{id}`    |    Não    | Busca usuário por ID        |
+| `PUT`    | `/users/{id}`    |    Sim    | Atualiza o próprio usuário  |
+| `DELETE` | `/users/{id}`    |    Sim    | Remove o próprio usuário    |
+
+## 🔑 Exemplos de uso
+
+### Registrar usuário
+
+```bash
+curl -i -X POST http://127.0.0.1:7878/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Stephan","email":"stephan@test.com","password":"12345678"}'
+```
+
+### Login
+
+```bash
+curl -i -X POST http://127.0.0.1:7878/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"stephan@test.com","password":"12345678"}'
+```
+
+Resposta esperada:
+
+```json
+{
+  "token": "eyJ...",
+  "token_type": "Bearer"
+}
+```
+
+### Salvar token em variável
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:7878/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"stephan@test.com","password":"12345678"}' \
+  | jq -r '.token')
+```
+
+### Atualizar usuário autenticado
+
+```bash
+curl -i -X PUT http://127.0.0.1:7878/users/5 \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Stephan Atualizado"}'
+```
+
+### Deletar usuário autenticado
+
+```bash
+curl -i -X DELETE http://127.0.0.1:7878/users/5 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## 🧾 Migrations
+
+As migrations ficam em:
+
+```text
+migrations/
+```
+
+Para criar uma nova migration:
+
+```bash
+sqlx migrate add nome_da_migration
+```
+
+Para rodar localmente:
+
+```bash
+sqlx migrate run
+```
+
+No Docker, as migrations são executadas automaticamente pelo script:
+
+```text
+scripts/docker-entrypoint.sh
+```
+
+## 🌐 CORS
+
+A API possui CORS configurado via `tower-http`.
+
+Em desenvolvimento, pode ser usado:
+
+```rust
+.allow_origin(tower_http::cors::Any)
+```
+
+Para produção, o ideal é restringir para o domínio real do frontend:
+
+```rust
+.allow_origin("https://seu-dominio.com".parse::<HeaderValue>().unwrap())
+```
+
+## 🩺 Healthcheck
+
+O container da API possui healthcheck configurado no Docker Compose, usando:
+
+```text
+GET /health
+```
+
+Isso permite verificar se a API está realmente pronta para receber tráfego.
+
+## 🔒 Segurança
+
+Já implementado:
+
+* Hash de senha com Argon2
+* JWT com expiração
+* Rotas protegidas por extractor customizado
+* Validação de entrada
+* CORS
+* Variáveis de ambiente
+
+Melhorias futuras:
+
+* Rate limiting
+* Refresh tokens
+* Revogação de tokens
+* Secrets fora de `.env`
+* HTTPS com reverse proxy
+* Testes automatizados
+* CI/CD
+* Backups automáticos do banco
+
+## 🧭 Próximos passos
+
+* [ ] Rate limiting
+* [ ] Testes de integração
+* [ ] GitHub Actions
+* [ ] Docker secrets
+* [ ] Reverse proxy com HTTPS
+* [ ] Backup automatizado do PostgreSQL
+* [ ] Refresh token
+* [ ] Frontend consumindo a API
+
+---
+
+## 📚 Objetivo do Projeto
+
+Este projeto nasceu como um exercício para entender servidores web em Rust, concorrência, ownership e borrowing em contexto real. A primeira versão implementava HTTP manualmente com TCP. A versão atual usa o ecossistema moderno do Rust para demonstrar como esses conceitos evoluem para uma API real, segura, assíncrona e containerizada.
+
+---
