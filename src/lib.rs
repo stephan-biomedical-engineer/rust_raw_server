@@ -1,4 +1,6 @@
+pub mod config;
 pub mod app;
+pub mod telemetry;
 pub mod auth;
 pub mod models;
 pub mod repositories;

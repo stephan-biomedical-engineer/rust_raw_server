@@ -1,36 +1,40 @@
-use std::net::SocketAddr;
-
 use dotenvy::dotenv;
 use sqlx::PgPool;
+use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tracing::info;
-use tracing_subscriber::EnvFilter;
 
-use rust_raw_server::app::build_app;
+use rust_raw_server::{app::build_app, config::Config, telemetry};
 
 #[tokio::main]
 async fn main() 
 {
     dotenv().ok();
 
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::new("info"))
-        .init();
+    let config = Config::from_env();
 
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("[ERROR] DATABASE_URL must be set");
+    telemetry::init(&config);
 
-    let pool = PgPool::connect(&database_url)
+    info!("Iniciando o servidor (Ambiente: {})", config.app_env);
+
+    info!("Conectando ao banco de dados...");
+    let pool = PgPool::connect(&config.database_url)
         .await
-        .expect("[ERROR] Failed to connect to PostgreSQL");
+        .expect("[INIT FATAL] Falha ao conectar ao PostgreSQL");
+
+    info!("Rodando migrations do banco de dados...");
+    sqlx::migrate!()
+        .run(&pool)
+        .await
+        .expect("[INIT FATAL] Falha ao executar migrations");
 
     let app = build_app(pool);
 
     let listener = TcpListener::bind("0.0.0.0:7878")
         .await
-        .expect("[ERROR] Failed to bind address");
+        .expect("[INIT FATAL] Falha ao fazer o bind da porta 7878");
 
-    info!("Server running on http://{}", listener.local_addr().unwrap());
+    info!("Servidor rodando em http://{}", listener.local_addr().unwrap());
 
     axum::serve
     (
@@ -38,5 +42,5 @@ async fn main()
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
         .await
-        .expect("[ERROR] Server failed");
+        .expect("[INIT FATAL] Servidor falhou");
 }
