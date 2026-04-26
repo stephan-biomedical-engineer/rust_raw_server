@@ -17,3 +17,4 @@ jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
 argon2 = "0.5.3"
 chrono = { version = "0.4.44", features = ["serde"] }
 validator = { version = "0.20.0", features = ["derive"] }
+tower_governor = "0.8.0"
