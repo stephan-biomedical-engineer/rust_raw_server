@@ -1,18 +1,18 @@
 use axum::{extract::{Path, State}, http::StatusCode, Json};
-use sqlx::PgPool;
 use validator::Validate;
 
 use crate::models::user::{UpdateUserRequest, User};
 use crate::responses::api_response::{service_error, unauthorized, validation_error, ApiError};
 use crate::services::users_service;
 use crate::auth::extractor::AuthUser;
+use crate::app::AppState;
 
 pub async fn list_users
     (
-        State(pool): State<PgPool>,
+        State(state): State<AppState>,
     ) -> Result<Json<Vec<User>>, ApiError>
 {
-    let users = users_service::list_users(&pool)
+    let users = users_service::list_users(&state.pool)
         .await
         .map_err(|err| service_error(err, "Failed to fetch users"))?;
 
@@ -21,11 +21,11 @@ pub async fn list_users
 
 pub async fn get_user
     (
-        State(pool): State<PgPool>,
+        State(state): State<AppState>,
         Path(id): Path<i32>,
     ) -> Result<Json<User>, ApiError>
 {
-    let user = users_service::get_user(&pool, id)
+    let user = users_service::get_user(&state.pool, id)
         .await
         .map_err(|err| service_error(err, "Failed to fetch user"))?;
 
@@ -35,7 +35,7 @@ pub async fn get_user
 pub async fn update_user
     (
         auth_user: AuthUser,
-        State(pool): State<PgPool>,
+        State(state): State<AppState>,
         Path(id): Path<i32>,
         Json(payload): Json<UpdateUserRequest>,
     ) -> Result<Json<User>, ApiError>
@@ -47,7 +47,7 @@ pub async fn update_user
     {
         return Err(unauthorized("You can only update your own account"));
     }
-    let user = users_service::update_user(&pool, id, payload.name)
+    let user = users_service::update_user(&state.pool, id, payload.name)
         .await
         .map_err(|err| service_error(err, "Failed to update user"))?;
 
@@ -57,7 +57,7 @@ pub async fn update_user
 pub async fn delete_user
     (
         auth_user: AuthUser,
-        State(pool): State<PgPool>,
+        State(state): State<AppState>,
         Path(id): Path<i32>,
     ) -> Result<StatusCode, ApiError>
 {
@@ -65,7 +65,7 @@ pub async fn delete_user
     {
         return Err(unauthorized("You can only delete your own account"));
     }
-    users_service::delete_user(&pool, id)
+    users_service::delete_user(&state.pool, id)
         .await
         .map_err(|err| service_error(err, "Failed to delete user"))?;
 

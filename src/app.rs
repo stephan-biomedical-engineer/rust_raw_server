@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::cors::CorsLayer;
 
+
 use axum::
 {
     http::
@@ -15,6 +16,8 @@ use axum::
     Router,
 };
 
+use crate::config::Config;
+
 use crate::routes::
 {
     auth::{login, register},
@@ -22,7 +25,14 @@ use crate::routes::
     users::{delete_user, get_user, list_users, update_user},
 };
 
-pub fn build_app(pool: PgPool) -> Router 
+#[derive(Clone)]
+pub struct AppState 
+{
+    pub pool: PgPool,
+    pub config: Config,
+}
+
+pub fn build_app(state: AppState) -> Router 
 {
     let cors = CorsLayer::new()
         .allow_origin(tower_http::cors::Any)
@@ -66,6 +76,6 @@ pub fn build_app(pool: PgPool) -> Router
         .route("/users", get(list_users))
         .route("/users/{id}", get(get_user).put(update_user).delete(delete_user))
         .nest("/auth", auth_routes)
-        .with_state(pool)
+        .with_state(state)
         .layer(cors)
 }

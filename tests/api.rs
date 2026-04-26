@@ -6,15 +6,15 @@ use axum::{
     extract::ConnectInfo,
 };
 use http_body_util::BodyExt;
-use rust_raw_server::app::build_app;
+use rust_raw_server::{app::{build_app, AppState}, config::Config};
 use serde_json::{json, Value};
 use serial_test::serial;
 use sqlx::PgPool;
 use tower::ServiceExt;
 
-async fn setup() -> (Router, PgPool)
+async fn setup() -> (Router, PgPool) 
 {
-    dotenvy::from_filename(".env.test").ok();
+    dotenvy::from_filename_override(".env.test").ok();
 
     let database_url = std::env::var("DATABASE_URL")
         .expect("DATABASE_URL must be set in .env.test");
@@ -33,7 +33,21 @@ async fn setup() -> (Router, PgPool)
         .await
         .expect("failed to clean users table");
 
-    let app = build_app(pool.clone());
+    let config = Config 
+    {
+        database_url: database_url.clone(),
+        jwt_secret: "chave_secreta_de_testes_super_segura".to_string(),
+        rust_log: "info".to_string(),
+        app_env: "test".to_string(),
+    };
+
+    let state = AppState 
+    {
+        pool: pool.clone(),
+        config,
+    };
+
+    let app = build_app(state);
 
     (app, pool)
 }

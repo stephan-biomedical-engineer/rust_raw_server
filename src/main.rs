@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use tokio::net::TcpListener;
 use tracing::info;
 
-use rust_raw_server::{app::build_app, config::Config, telemetry};
+use rust_raw_server::{app::{build_app, AppState}, config::Config, telemetry};
 
 #[tokio::main]
 async fn main() 
@@ -16,8 +16,8 @@ async fn main()
     telemetry::init(&config);
 
     info!("Iniciando o servidor (Ambiente: {})", config.app_env);
-
     info!("Conectando ao banco de dados...");
+
     let pool = PgPool::connect(&config.database_url)
         .await
         .expect("[INIT FATAL] Falha ao conectar ao PostgreSQL");
@@ -28,7 +28,13 @@ async fn main()
         .await
         .expect("[INIT FATAL] Falha ao executar migrations");
 
-    let app = build_app(pool);
+    let state = AppState 
+    {
+        pool,
+        config, 
+    };
+
+    let app = build_app(state);
 
     let listener = TcpListener::bind("0.0.0.0:7878")
         .await
