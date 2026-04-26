@@ -1,9 +1,10 @@
 use axum::{extract::State, http::StatusCode, Json};
 use sqlx::PgPool;
+use validator::Validate;
 
 use crate::models::auth::{AuthResponse, LoginRequest, RegisterRequest};
 use crate::models::user::User;
-use crate::responses::api_response::{ApiError, conflict, internal_error, unauthorized};
+use crate::responses::api_response::{ApiError, conflict, internal_error, unauthorized, validation_error};
 use crate::services::auth_service::{self, AuthError};
 
 fn auth_error(err: AuthError) -> ApiError
@@ -28,6 +29,9 @@ pub async fn register
     Json(payload): Json<RegisterRequest>,
 ) -> Result<(StatusCode, Json<User>), ApiError>
 {
+    payload.validate()
+        .map_err(|_| validation_error("Invalid register payload"))?;
+
     let user = auth_service::register(&pool, payload)
         .await
         .map_err(auth_error)?;
@@ -41,6 +45,9 @@ pub async fn login
     Json(payload): Json<LoginRequest>,
 ) -> Result<Json<AuthResponse>, ApiError>
 {
+    payload.validate()
+        .map_err(|_| validation_error("Invalid login payload"))?;
+        
     let response = auth_service::login(&pool, payload)
         .await
         .map_err(auth_error)?;

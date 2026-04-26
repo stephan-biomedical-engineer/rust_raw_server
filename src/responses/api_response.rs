@@ -78,3 +78,17 @@ pub fn conflict(message: &str) -> ApiError
     )
 }
 
+pub fn validation_error(message: &str) -> ApiError
+{
+    (
+        StatusCode::BAD_REQUEST,
+        Json
+        (
+            json!
+            (
+                { "error": message }
+            )
+        ),
+    )
+}
+
