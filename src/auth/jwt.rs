@@ -3,9 +3,10 @@ use argon2::{
     Argon2,
 };
 use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
-use jsonwebtoken::{decode, DecodingKey, Validation};
+use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use uuid::Uuid;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims 
@@ -33,28 +34,37 @@ pub fn verify_password(password: &str, password_hash: &str)
     Argon2::default().verify_password(password.as_bytes(), &parsed_hash).is_ok()
 }
 
-pub fn create_jwt(user_id: i32) 
-    -> Result<String, jsonwebtoken::errors::Error> 
+pub fn create_jwt
+    (
+        user_id: i32,
+        secret: &str,
+    ) -> Result<String, jsonwebtoken::errors::Error>
 {
     let expiration = Utc::now()
-        .checked_add_signed(Duration::hours(24))
+        .checked_add_signed(Duration::minutes(15))
         .expect("Timestamp inválido")
         .timestamp() as usize;
 
-    let claims = Claims {
+    let claims = Claims 
+    {
         sub: user_id.to_string(),
         exp: expiration,
     };
 
-    let secret = std::env::var("JWT_SECRET").expect("[ERRO] JWT_SECRET não configurada no .env");
-    encode(&Header::default(), &claims, &EncodingKey::from_secret(secret.as_bytes()))
+    encode
+    (
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
 }
 
-pub fn decode_jwt(token: &str) -> Result<Claims, jsonwebtoken::errors::Error>
+pub fn decode_jwt
+    (
+        token: &str,
+        secret: &str,
+    ) -> Result<Claims, jsonwebtoken::errors::Error>
 {
-    let secret = std::env::var("JWT_SECRET")
-        .expect("[ERRO] JWT_SECRET não configurada");
-
     let data = decode::<Claims>
     (
         token,
@@ -63,4 +73,16 @@ pub fn decode_jwt(token: &str) -> Result<Claims, jsonwebtoken::errors::Error>
     )?;
 
     Ok(data.claims)
+}
+
+pub fn generate_refresh_token() -> String
+{
+    Uuid::new_v4().to_string()
+}
+
+pub fn hash_refresh_token(token: &str) -> String
+{
+    let mut hasher = Sha256::new();
+    hasher.update(token.as_bytes());
+    hex::encode(hasher.finalize())
 }

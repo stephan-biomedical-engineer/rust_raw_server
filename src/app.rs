@@ -20,7 +20,7 @@ use crate::config::Config;
 
 use crate::routes::
 {
-    auth::{login, register},
+    auth::{login, logout, refresh, register},
     health::health,
     users::{delete_user, get_user, list_users, update_user},
 };
@@ -69,6 +69,8 @@ pub fn build_app(state: AppState) -> Router
     let auth_routes = Router::new()
         .route("/register", post(register))
         .route("/login", post(login))
+        .route("/refresh", post(refresh))
+        .route("/logout", post(logout))
         .layer(GovernorLayer::new(governor_conf));
 
     Router::new()

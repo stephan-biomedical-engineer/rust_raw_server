@@ -2,7 +2,14 @@ use axum::{extract::State, http::StatusCode, Json};
 use validator::Validate;
 
 use crate::app::AppState;
-use crate::models::auth::{AuthResponse, LoginRequest, RegisterRequest};
+use crate::models::auth::{
+    AccessTokenResponse,
+    AuthResponse,
+    LoginRequest,
+    LogoutRequest,
+    RefreshRequest,
+    RegisterRequest,
+};
 use crate::models::user::User;
 use crate::responses::api_response::{ApiError, conflict, internal_error, unauthorized, validation_error};
 use crate::services::auth_service::{self, AuthError};
@@ -47,10 +54,52 @@ pub async fn login
 {
     payload.validate()
         .map_err(|_| validation_error("Invalid login payload"))?;
-        
-    let response = auth_service::login(&state.pool, payload)
+
+    let response = auth_service::login
+    (
+        &state.pool,
+        &state.config.jwt_secret,
+        payload,
+    )
         .await
         .map_err(auth_error)?;
 
     Ok(Json(response))
+}
+
+pub async fn refresh
+(
+    State(state): State<AppState>,
+    Json(payload): Json<RefreshRequest>,
+) -> Result<Json<AccessTokenResponse>, ApiError>
+{
+    payload.validate()
+        .map_err(|_| validation_error("Invalid refresh payload"))?;
+
+    let response = auth_service::refresh
+    (
+        &state.pool,
+        &state.config.jwt_secret,
+        payload,
+    )
+        .await
+        .map_err(auth_error)?;
+
+    Ok(Json(response))
+}
+
+pub async fn logout
+(
+    State(state): State<AppState>,
+    Json(payload): Json<LogoutRequest>,
+) -> Result<StatusCode, ApiError>
+{
+    payload.validate()
+        .map_err(|_| validation_error("Invalid logout payload"))?;
+
+    auth_service::logout(&state.pool, payload)
+        .await
+        .map_err(auth_error)?;
+
+    Ok(StatusCode::NO_CONTENT)
 }

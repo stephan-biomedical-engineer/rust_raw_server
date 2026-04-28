@@ -1,26 +1,26 @@
-use axum::
-{
-    extract::FromRequestParts,
-    http::{request::Parts, StatusCode},
-};
-
+use axum::extract::FromRequestParts;
+use axum::http::request::Parts;
 use crate::auth::jwt::decode_jwt;
-use crate::responses::api_response::{ApiError, internal_error};
+use crate::app::AppState;
+use crate::responses::api_response::
+{
+    ApiError,
+    internal_error,
+    unauthorized,
+};
 
 pub struct AuthUser
 {
     pub user_id: i32,
 }
 
-impl<S> FromRequestParts<S> for AuthUser
-where
-    S: Send + Sync,
+impl FromRequestParts<AppState> for AuthUser
 {
     type Rejection = ApiError;
 
     async fn from_request_parts(
         parts: &mut Parts,
-        _state: &S,
+        state: &AppState,
     ) -> Result<Self, Self::Rejection>
     {
         let auth_header = parts.headers
@@ -35,27 +35,16 @@ where
             }
             _ =>
             {
-                return Err((
-                    StatusCode::UNAUTHORIZED,
-                    axum::Json(serde_json::json!({
-                        "error": "Missing or invalid Authorization header"
-                    })),
-                ));
+                return Err(unauthorized("Missing or invalid Authorization header"));
             }
         };
 
-        let claims = decode_jwt(&token).map_err(|_| {
-            (
-                StatusCode::UNAUTHORIZED,
-                axum::Json(serde_json::json!({
-                    "error": "Invalid token"
-                })),
-            )
-        })?;
+        let claims = decode_jwt(&token, &state.config.jwt_secret)
+            .map_err(|_| unauthorized("Invalid token"))?;
 
-        let user_id = claims.sub.parse::<i32>().map_err(|_| {
-            internal_error("Invalid token payload")
-        })?;
+        let user_id = claims.sub
+            .parse::<i32>()
+            .map_err(|_| internal_error("Invalid token payload"))?;
 
         Ok(AuthUser { user_id })
     }
