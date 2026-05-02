@@ -10,7 +10,7 @@ use crate::models::auth::{
     RefreshRequest,
     RegisterRequest,
 };
-use crate::models::user::User;
+use crate::models::user::PublicUser;
 use crate::responses::api_response::{ApiError, conflict, internal_error, unauthorized, validation_error};
 use crate::services::auth_service::{self, AuthError};
 
@@ -34,7 +34,7 @@ pub async fn register
 (
     State(state): State<AppState>,
     Json(payload): Json<RegisterRequest>,
-) -> Result<(StatusCode, Json<User>), ApiError>
+) -> Result<(StatusCode, Json<PublicUser>), ApiError>
 {
     payload.validate()
         .map_err(|_| validation_error("Invalid register payload"))?;
@@ -43,7 +43,7 @@ pub async fn register
         .await
         .map_err(auth_error)?;
 
-    Ok((StatusCode::CREATED, Json(user)))
+    Ok((StatusCode::CREATED, Json(user.into())))
 }
 
 pub async fn login
