@@ -39,7 +39,14 @@ fn is_unique_violation(err: &sqlx::Error) -> bool
 
 pub async fn register(pool: &PgPool, req: RegisterRequest) -> Result<User, AuthError> 
 {
-    let hash = hash_password(&req.password)
+    let password = req.password.clone();
+
+    let hash = tokio::task::spawn_blocking(move || 
+    {
+        hash_password(&password)
+    })
+        .await
+        .map_err(|_| AuthError::HashingError)?
         .map_err(|_| AuthError::HashingError)?;
 
     let user = users_repository::create(pool, req.name, req.email, hash)
@@ -71,7 +78,17 @@ pub async fn login
         .map_err(AuthError::Database)?
         .ok_or(AuthError::InvalidCredentials)?; 
 
-    if !verify_password(&req.password, &user.password_hash) 
+    let password = req.password.clone();
+    let password_hash = user.password_hash.clone();
+
+    let is_valid = tokio::task::spawn_blocking(move || 
+    {
+        verify_password(&password, &password_hash)
+    })
+        .await
+        .map_err(|_| AuthError::HashingError)?;
+
+    if !is_valid 
     {
         return Err(AuthError::InvalidCredentials); 
     }
