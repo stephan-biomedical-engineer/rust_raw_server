@@ -8,23 +8,24 @@ Este projeto começou como um servidor TCP/HTTP construído manualmente para est
 
 - API REST com Axum
 - Runtime assíncrono com Tokio
-- PostgreSQL via Docker
-- SQLx com migrations
-- Autenticação JWT
-- Hash de senha com Argon2
-- Rotas protegidas por extractor customizado
-- Validação de payloads com `validator`
-- Logs estruturados com `tracing`
-- CORS configurado
-- Healthcheck no Docker
+- PostgreSQL com SQLx e migrations
 - Dockerfile multi-stage
 - Docker Compose com API + banco
 - Migrations automáticas no startup do container
 - Arquitetura em camadas
+- Autenticação com JWT
+- Access token com expiração curta
+- Refresh token persistido no banco como hash
+- Logout com revogação de refresh token
+- Hash de senha com Argon2
+- Rotas protegidas por extractor customizado
 - Validação de payloads com `validator`
-- Logs estruturados com `tracing` (JSON em produção)
+- Logs estruturados com `tracing`
+- Logs em JSON em ambiente de produção
+- CORS configurado
 - Rate limiting com `tower-governor`
-- Testes de integração com `tokio` + `reqwest`
+- Healthcheck no Docker
+- Testes de integração com `tokio` e `tower::ServiceExt`
 
 ## 🛠️ Tecnologias Utilizadas
 
@@ -56,6 +57,7 @@ src/
 │   └── user.rs
 ├── repositories/
 │   ├── mod.rs
+│   ├── refresh_tokens_repository.rs
 │   └── users_repository.rs
 ├── responses/
 │   ├── api_response.rs
@@ -69,11 +71,11 @@ src/
 │   ├── auth_service.rs
 │   ├── mod.rs
 │   └── users_service.rs
-├── app.rs          # montagem do Router (rotas + middlewares)
-├── config.rs       # leitura de variáveis de ambiente
-├── telemetry.rs    # configuração de logs (JSON ou texto)
-├── main.rs         # bootstrap da aplicação
-└── lib.rs          # módulos
+├── app.rs
+├── config.rs
+├── telemetry.rs
+├── main.rs
+└── lib.rs
 ````
 
 ### `routes/`
@@ -90,7 +92,7 @@ Camada de acesso ao banco. É onde ficam as queries SQL usando SQLx.
 
 ### `models/`
 
-Structs usadas pela aplicação, como `User`, `RegisterRequest`, `LoginRequest` e `AuthResponse`.
+Structs usadas pela aplicação, como `User`, `PublicUser`, `RegisterRequest`, `LoginRequest`, `AuthResponse`, `RefreshRequest` e `LogoutRequest`. O modelo `User` representa dados internos vindos do banco, incluindo `password_hash`. Para respostas HTTP, a API usa `PublicUser`, evitando expor campos sensíveis.
 
 ### `responses/`
 
@@ -102,7 +104,7 @@ Responsável por JWT, hash de senha, validação de senha e extractor de usuári
 
 ## 🔐 Autenticação
 
-A API usa autenticação com JWT.
+A API usa autenticação com JWT e refresh tokens.
 
 Fluxo:
 
@@ -113,11 +115,20 @@ POST /auth/register
 
 POST /auth/login
 → valida email/senha
-→ retorna token JWT
+→ retorna access_token e refresh_token
 
+POST /auth/refresh
+→ recebe refresh_token válido
+→ retorna um novo access_token
+
+POST /auth/logout
+→ revoga o refresh_token
+
+GET /users
+GET /users/{id}
 PUT /users/{id}
 DELETE /users/{id}
-→ exigem Authorization: Bearer <token>
+→ exigem Authorization: Bearer <access_token>
 ```
 
 As senhas nunca são salvas em texto puro. Apenas o `password_hash` é persistido no banco.
@@ -157,7 +168,7 @@ RUST_LOG=info
 ### 2. Suba a aplicação
 
 ```bash
-docker compose --env-file .env up --build -d
+docker compose --env-file .env.<context> up --build -d
 ```
 
 Isso sobe:
@@ -265,15 +276,17 @@ cargo run
 
 ## 📌 Endpoints
 
-| Método   | Rota             | Protegida | Descrição                   |
-| :------- | :--------------- | :-------: | :-------------------------- |
-| `GET`    | `/health`        |    Não    | Verifica a saúde da API     |
-| `POST`   | `/auth/register` |    Não    | Registra um novo usuário    |
-| `POST`   | `/auth/login`    |    Não    | Realiza login e retorna JWT |
-| `GET`    | `/users`         |    Não    | Lista usuários              |
-| `GET`    | `/users/{id}`    |    Não    | Busca usuário por ID        |
-| `PUT`    | `/users/{id}`    |    Sim    | Atualiza o próprio usuário  |
-| `DELETE` | `/users/{id}`    |    Sim    | Remove o próprio usuário    |
+| Método   | Rota             | Protegida | Descrição                                |
+| :------- | :--------------- | :-------: | :--------------------------------------- |
+| `GET`    | `/health`        |    Não    | Verifica a saúde da API                  |
+| `POST`   | `/auth/register` |    Não    | Registra um novo usuário                 |
+| `POST`   | `/auth/login`    |    Não    | Realiza login e retorna tokens           |
+| `POST`   | `/auth/refresh`  |    Não    | Gera novo access token via refresh token |
+| `POST`   | `/auth/logout`   |    Não    | Revoga refresh token                     |
+| `GET`    | `/users`         |    Sim    | Lista usuários                           |
+| `GET`    | `/users/{id}`    |    Sim    | Busca o próprio usuário por ID           |
+| `PUT`    | `/users/{id}`    |    Sim    | Atualiza o próprio usuário               |
+| `DELETE` | `/users/{id}`    |    Sim    | Remove o próprio usuário                 |
 
 ## 🔑 Exemplos de uso
 
@@ -297,25 +310,28 @@ Resposta esperada:
 
 ```json
 {
-  "token": "eyJ...",
+  "access_token": "eyJ...",
+  "refresh_token": "550e8400-e29b-41d4-a716-446655440000",
   "token_type": "Bearer"
 }
 ```
 
-### Salvar token em variável
+### Salvar tokens em variáveis
 
 ```bash
-TOKEN=$(curl -s -X POST http://127.0.0.1:7878/auth/login \
+LOGIN_RESPONSE=$(curl -s -X POST http://127.0.0.1:7878/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"stephan@test.com","password":"12345678"}' \
-  | jq -r '.token')
+  -d '{"email":"stephan@test.com","password":"12345678"}')
+
+ACCESS_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.access_token')
+REFRESH_TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.refresh_token')
 ```
 
 ### Atualizar usuário autenticado
 
 ```bash
 curl -i -X PUT http://127.0.0.1:7878/users/5 \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "Authorization: Bearer $ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"Stephan Atualizado"}'
 ```
@@ -324,7 +340,7 @@ curl -i -X PUT http://127.0.0.1:7878/users/5 \
 
 ```bash
 curl -i -X DELETE http://127.0.0.1:7878/users/5 \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
 
 ## 🧾 Migrations
@@ -394,15 +410,20 @@ Já implementado:
 
 ## 🧭 Próximos passos
 
-* [ ] Refresh tokens
-* [ ] Revogação de tokens
-* [ ] Secrets externos (AWS / Docker Secrets)
-* [ ] HTTPS com reverse proxy (Nginx / Traefik)
-* [ ] CI/CD com GitHub Actions
-* [ ] Backup automatizado do PostgreSQL
-* [ ] Deploy em Kubernetes
-* [ ] Frontend consumindo a API
-
+- [x] Access token JWT com expiração
+- [x] Refresh token persistido no banco como hash
+- [x] Endpoint `/auth/refresh`
+- [x] Logout com revogação de refresh token
+- [ ] Rotação de refresh tokens
+- [ ] Detecção de reutilização de refresh token
+- [ ] Proteção administrativa para `GET /users`
+- [ ] CORS restrito por ambiente
+- [ ] Secrets externos (AWS / Docker Secrets)
+- [ ] HTTPS com reverse proxy (Nginx / Traefik)
+- [ ] CI/CD com GitHub Actions
+- [ ] Backup automatizado do PostgreSQL
+- [ ] Deploy em Kubernetes
+- [ ] Frontend em React consumindo a API
 ---
 
 ## 📚 Objetivo do Projeto
