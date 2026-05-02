@@ -135,7 +135,8 @@ async fn register_user(app: Router, email: &str) -> Value {
     body
 }
 
-async fn login_user(app: Router, email: &str) -> String {
+async fn login_user(app: Router, email: &str) -> String 
+{
     let (status, body) = request
     (
         app,
@@ -157,7 +158,7 @@ async fn login_user(app: Router, email: &str) -> String {
 
     assert_eq!(status, StatusCode::OK);
 
-    body["token"].as_str().unwrap().to_string()
+    body["access_token"].as_str().unwrap().to_string()
 }
 
 #[tokio::test]
@@ -306,6 +307,7 @@ async fn list_users_returns_registered_users()
     let (app, _) = setup().await;
 
     register_user(app.clone(), "stephan@test.com").await;
+    let token = login_user(app.clone(), "stephan@test.com").await;
 
     let (status, body) = request
     (
@@ -313,7 +315,7 @@ async fn list_users_returns_registered_users()
         Method::GET,
         "/users",
         None,
-        None,
+        Some(&token),
     )
     .await;
 
@@ -329,6 +331,7 @@ async fn get_user_returns_user_by_id()
     let (app, _) = setup().await;
 
     register_user(app.clone(), "stephan@test.com").await;
+    let token = login_user(app.clone(), "stephan@test.com").await;
 
     let (status, body) = request
     (
@@ -336,7 +339,7 @@ async fn get_user_returns_user_by_id()
         Method::GET,
         "/users/1",
         None,
-        None,
+        Some(&token),
     )
     .await;
 
@@ -461,7 +464,7 @@ async fn delete_user_deletes_own_account()
         Method::GET,
         "/users/1",
         None,
-        None,
+        Some(&token),
     )
     .await;
 

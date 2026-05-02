@@ -28,21 +28,33 @@ pub enum AuthError
     TokenCreationError,
 }
 
+fn is_unique_violation(err: &sqlx::Error) -> bool
+{
+    match err
+    {
+        sqlx::Error::Database(db_err) => db_err.code().as_deref() == Some("23505"),
+        _ => false,
+    }
+}
+
 pub async fn register(pool: &PgPool, req: RegisterRequest) -> Result<User, AuthError> 
 {
-    if users_repository::find_by_email(pool, &req.email)
-        .await
-        .map_err(AuthError::Database)
-        ?.is_some() 
-    {
-        return Err(AuthError::UserAlreadyExists);
-    }
-
-    let hash = hash_password(&req.password).map_err(|_| AuthError::HashingError)?;
+    let hash = hash_password(&req.password)
+        .map_err(|_| AuthError::HashingError)?;
 
     let user = users_repository::create(pool, req.name, req.email, hash)
         .await
-        .map_err(AuthError::Database)?;
+        .map_err(|err|
+        {
+            if is_unique_violation(&err)
+            {
+                AuthError::UserAlreadyExists
+            }
+            else
+            {
+                AuthError::Database(err)
+            }
+        })?;
 
     Ok(user)
 }
